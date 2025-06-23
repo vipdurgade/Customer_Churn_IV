@@ -30,12 +30,15 @@ required_features = [
 ]
 st.write(", ".join(required_features))
 
-uploaded_file = st.file_uploader("Upload Excel file", type=['xlsx', 'xls'])
+uploaded_file = st.file_uploader("Upload Excel or CSV file", type=['xlsx', 'xls', 'csv'])
 
 if uploaded_file:
     try:
         # Read the uploaded file
-        df = pd.read_excel(uploaded_file)
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
         
         st.write("📋 Uploaded Data Preview:")
         st.dataframe(df.head())
