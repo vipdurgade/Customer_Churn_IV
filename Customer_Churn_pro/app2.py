@@ -38,21 +38,20 @@ st.markdown("""
     .main-title {
         font-size: 3rem;
         font-weight: 700;
-        color: #2c3e50;
+        color: #ffffff !important;
         text-align: center;
         margin-bottom: 0.5rem;
-        background: linear-gradient(45deg, #667eea, #764ba2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        background: none;
     }
     
     .subtitle {
         font-size: 1.2rem;
-        color: #7f8c8d;
+        color: #ffffff;
         text-align: center;
         margin-bottom: 2rem;
         font-weight: 400;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     }
     
     /* Card styling */
@@ -230,12 +229,46 @@ def get_state_from_plz(plz):
     else:
         return 1  # Default fallback
 
-# Customer type mapping
+# Customer type mapping - CRITICAL: This must match your training data encoding
 customer_types = {
     1: "Privatkunden",
     2: "Land- und Forstwirtschaft", 
     3: "Selbständige"
 }
+
+# State mapping - Add your actual state encoding if different
+state_mapping = {
+    1: "Brandenburg/Berlin/MV",
+    2: "Hamburg/SH", 
+    3: "Niedersachsen/Bremen",
+    4: "NRW (partial)", 
+    5: "Sachsen-Anhalt", 
+    6: "NRW", 
+    7: "Niedersachsen",
+    8: "NRW", 
+    9: "Rheinland-Pfalz", 
+    10: "NRW", 
+    11: "Hessen",
+    12: "Saarland/RLP", 
+    13: "Baden-Württemberg", 
+    14: "Baden-Württemberg",
+    15: "Bayern", 
+    16: "Baden-Württemberg", 
+    17: "Bayern/Thüringen"
+}
+
+# PLZ encoding function - You may need to adjust this based on your training data
+def encode_plz(plz):
+    """
+    Encode PLZ to match training data
+    If you used different encoding during training, modify this function
+    """
+    # Option 1: Use PLZ as-is (if that's how you trained)
+    return int(plz)
+    
+    # Option 2: If you used PLZ ranges or different encoding, modify accordingly
+    # Example: return plz // 1000  # First digit of PLZ
+    # Example: return some_other_encoding_logic(plz)
 
 # Feature descriptions for better user understanding
 feature_descriptions = {
@@ -433,15 +466,20 @@ with tab2:
             
             # Auto-detect state from PLZ
             detected_state = get_state_from_plz(plz_id)
-            state_names = {
-                1: "Brandenburg/Berlin/MV", 2: "Hamburg/SH", 3: "Niedersachsen/Bremen",
-                4: "NRW (partial)", 5: "Sachsen-Anhalt", 6: "NRW", 7: "Niedersachsen",
-                8: "NRW", 9: "Rheinland-Pfalz", 10: "NRW", 11: "Hessen",
-                12: "Saarland/RLP", 13: "Baden-Württemberg", 14: "Baden-Württemberg",
-                15: "Bayern", 16: "Baden-Württemberg", 17: "Bayern/Thüringen"
-            }
             
-            st.info(f"🗺️ **Auto-detected State:** {state_names.get(detected_state, 'Unknown')} (ID: {detected_state})")
+            st.info(f"🗺️ **Auto-detected State:** {state_mapping.get(detected_state, 'Unknown')} (ID: {detected_state})")
+            
+            # Add warning about feature encoding
+            with st.expander("⚠️ Important: Feature Encoding", expanded=False):
+                st.warning("""
+                **Model Training vs Prediction Mismatch Check:**
+                - Customer Type: Using ID {1,2,3} 
+                - State: Auto-detected from PLZ
+                - PLZ: Using raw postal code value
+                
+                If predictions seem incorrect, the encoding might not match your training data.
+                Please verify how these features were encoded during model training.
+                """)
             
             # Customer type selection with meaningful labels
             customer_type_display = st.selectbox(
@@ -456,7 +494,7 @@ with tab2:
         submitted = st.form_submit_button("🔮 Predict Churn", use_container_width=True)
         
         if submitted:
-            # Prepare input data
+            # Prepare input data with proper encoding
             input_data = pd.DataFrame({
                 'estimated_total_paid': [estimated_total_paid],
                 'carage_years': [carage_years],
@@ -466,9 +504,13 @@ with tab2:
                 'KILOMETERSTAND_CLEAN': [kilometerstand],
                 'claim': [claim],
                 'state_id': [detected_state],  # Use auto-detected state
-                'plz_id': [plz_id],
-                'Cus_typ_id': [customer_type_display]
+                'plz_id': [encode_plz(plz_id)],  # Use encoded PLZ
+                'Cus_typ_id': [customer_type_display]  # Use selected customer type ID
             })
+            
+            # Display the data being sent to model for debugging
+            with st.expander("🔧 Debug: Data sent to model", expanded=False):
+                st.dataframe(input_data)
             
             # Make prediction
             with st.spinner('🔮 Analyzing customer data...'):
@@ -543,6 +585,24 @@ with st.sidebar:
     **Purpose:** Customer Churn Prediction  
     **Features:** 10 input variables  
     **Accuracy:** Optimized for business use
+    """)
+    
+    st.markdown("### ⚠️ Feature Encoding Check")
+    st.warning("""
+    **Important:** Ensure these match your training data:
+    
+    **Customer Types:**
+    - 1: Privatkunden
+    - 2: Land- und Forstwirtschaft  
+    - 3: Selbständige
+    
+    **State Encoding:**
+    - Auto-detected from PLZ ranges
+    - IDs 1-17 based on German states
+    
+    **PLZ Encoding:**
+    - Currently using raw PLZ values
+    - May need adjustment based on training
     """)
     
     st.markdown("### 📚 How to Use")
