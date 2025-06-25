@@ -5,7 +5,7 @@ import io
 import numpy as np
 from PIL import Image
 import base64
-import shap
+import shap as shap
 import matplotlib.pyplot as plt
 import plotly.express as px
 from sklearn.metrics import confusion_matrix
