@@ -3,70 +3,113 @@ import pandas as pd
 import joblib
 import io
 import numpy as np
+from PIL import Image
+import base64
 
 # Page configuration
 st.set_page_config(
-    page_title="Customer Churn Prediction",
-    page_icon="📊",
+    page_title="Customer Churn Prediction - Itzehoer Versicherungen",
+    page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for professional styling
+# Function to load and encode image
+def get_base64_encoded_image(image_path):
+    """Convert image to base64 string for embedding in CSS"""
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except:
+        return None
+
+# Custom CSS for Itzehoer Versicherungen styling
 st.markdown("""
 <style>
     /* Import Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Open+Sans:wght@300;400;600;700&display=swap');
     
-    /* Main background and font */
+    /* Main background - Itzehoer inspired */
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        font-family: 'Inter', sans-serif;
+        background: linear-gradient(135deg, #7CB342 0%, #558B2F 50%, #33691E 100%);
+        font-family: 'Open Sans', sans-serif;
+    }
+    
+    /* Header section with logo */
+    .header-container {
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 0 0 25px 25px;
+        padding: 1.5rem 2rem;
+        margin: 0 -1rem 2rem -1rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        backdrop-filter: blur(10px);
+        border-bottom: 4px solid #7CB342;
+    }
+    
+    .logo-section {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+    
+    .company-logo {
+        height: 80px;
+        margin-right: 20px;
     }
     
     /* Main content container */
     .main-container {
-        background: rgba(255, 255, 255, 0.95);
+        background: rgba(255, 255, 255, 0.98);
         border-radius: 20px;
         padding: 2rem;
         margin: 1rem;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
         backdrop-filter: blur(10px);
+        border: 1px solid rgba(124, 179, 66, 0.2);
     }
     
-    /* Title styling */
+    /* Title styling - Itzehoer colors */
     .main-title {
-        font-size: 3rem;
+        font-size: 2.8rem;
         font-weight: 700;
-        color: #ffffff !important;
+        color: #2E3842 !important;
+        text-align: center;
+        margin: 0;
+        font-family: 'Inter', sans-serif;
+    }
+    
+    .company-name {
+        font-size: 1.1rem;
+        color: #7CB342;
         text-align: center;
         margin-bottom: 0.5rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        background: none;
+        font-weight: 600;
+        letter-spacing: 0.5px;
     }
     
     .subtitle {
-        font-size: 1.2rem;
-        color: #ffffff;
+        font-size: 1.1rem;
+        color: #546E7A;
         text-align: center;
         margin-bottom: 2rem;
         font-weight: 400;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     }
     
-    /* Card styling */
+    /* Card styling - Itzehoer inspired */
     .feature-card {
         background: white;
         border-radius: 15px;
-        padding: 1.5rem;
+        padding: 2rem;
         margin: 1rem 0;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.08);
-        border: 1px solid #e9ecef;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 1px solid rgba(124, 179, 66, 0.1);
+        border-left: 4px solid #7CB342;
     }
     
-    /* Button styling */
+    /* Button styling - Itzehoer green */
     .stButton > button {
-        background: linear-gradient(45deg, #667eea, #764ba2);
+        background: linear-gradient(45deg, #7CB342, #558B2F);
         color: white;
         border: none;
         border-radius: 25px;
@@ -74,17 +117,24 @@ st.markdown("""
         font-weight: 600;
         font-size: 1rem;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 4px 15px rgba(124, 179, 66, 0.3);
+        border: 2px solid transparent;
     }
     
     .stButton > button:hover {
+        background: linear-gradient(45deg, #558B2F, #33691E);
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 6px 25px rgba(124, 179, 66, 0.4);
+        border: 2px solid #7CB342;
     }
     
-    /* Sidebar styling */
+    /* Sidebar styling - Itzehoer theme */
     .css-1d391kg {
-        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+        background: linear-gradient(180deg, #f8f9fa 0%, #e8f5e8 100%);
+    }
+    
+    .css-1lcbmhc {
+        background: linear-gradient(180deg, #f8f9fa 0%, #e8f5e8 100%);
     }
     
     /* Metrics styling */
@@ -93,66 +143,132 @@ st.markdown("""
         border-radius: 15px;
         padding: 1.5rem;
         text-align: center;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.08);
-        border: 1px solid #e9ecef;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 1px solid rgba(124, 179, 66, 0.1);
+        border-top: 4px solid #7CB342;
     }
     
-    /* Tab styling */
+    /* Tab styling - Itzehoer colors */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 2rem;
+        gap: 1rem;
         background: white;
         border-radius: 15px;
         padding: 0.5rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        border: 1px solid rgba(124, 179, 66, 0.1);
     }
     
     .stTabs [data-baseweb="tab"] {
         border-radius: 10px;
         padding: 0.75rem 1.5rem;
         font-weight: 600;
-        color: #667eea;
+        color: #558B2F;
         border: 2px solid transparent;
+        transition: all 0.3s ease;
     }
     
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(45deg, #667eea, #764ba2);
+        background: linear-gradient(45deg, #7CB342, #558B2F);
         color: white !important;
-        border: none;
+        border: 2px solid #7CB342;
     }
     
-    /* Input styling */
+    /* Input styling - Itzehoer theme */
     .stSelectbox > div > div {
         border-radius: 10px;
-        border: 2px solid #e9ecef;
+        border: 2px solid #e8f5e8;
+        transition: border-color 0.3s ease;
+    }
+    
+    .stSelectbox > div > div:focus-within {
+        border-color: #7CB342;
     }
     
     .stNumberInput > div > div > input {
         border-radius: 10px;
-        border: 2px solid #e9ecef;
+        border: 2px solid #e8f5e8;
+        transition: border-color 0.3s ease;
+    }
+    
+    .stNumberInput > div > div > input:focus {
+        border-color: #7CB342;
     }
     
     /* Success/Error message styling */
     .stSuccess {
-        background: linear-gradient(45deg, #00b894, #00cec9);
+        background: linear-gradient(45deg, #7CB342, #558B2F);
         border-radius: 10px;
+        color: white;
     }
     
     .stError {
-        background: linear-gradient(45deg, #e17055, #d63031);
+        background: linear-gradient(45deg, #e74c3c, #c0392b);
+        border-radius: 10px;
+    }
+    
+    .stWarning {
+        background: linear-gradient(45deg, #f39c12, #e67e22);
+        border-radius: 10px;
+    }
+    
+    .stInfo {
+        background: linear-gradient(45deg, #3498db, #2980b9);
         border-radius: 10px;
     }
     
     /* File uploader styling */
     .stFileUploader > div {
-        border: 2px dashed #667eea;
+        border: 2px dashed #7CB342;
         border-radius: 15px;
-        background: rgba(102, 126, 234, 0.05);
+        background: rgba(124, 179, 66, 0.05);
+        transition: all 0.3s ease;
+    }
+    
+    .stFileUploader > div:hover {
+        border-color: #558B2F;
+        background: rgba(124, 179, 66, 0.1);
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background: rgba(124, 179, 66, 0.1);
+        border-radius: 10px;
+        color: #2E3842;
+        font-weight: 600;
+    }
+    
+    /* Form styling */
+    .stForm {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        border: 1px solid rgba(124, 179, 66, 0.1);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    /* Sidebar info boxes */
+    .sidebar-info {
+        background: white;
+        border-radius: 10px;
+        padding: 1rem;
+        margin: 1rem 0;
+        border-left: 4px solid #7CB342;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
     
     /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    
+    /* Custom metric styling */
+    [data-testid="metric-container"] {
+        background: white;
+        border: 1px solid rgba(124, 179, 66, 0.2);
+        padding: 1rem;
+        border-radius: 10px;
+        border-left: 4px solid #7CB342;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -229,14 +345,14 @@ def get_state_from_plz(plz):
     else:
         return 1  # Default fallback
 
-# Customer type mapping - CRITICAL: This must match your training data encoding
+# Customer type mapping
 customer_types = {
     1: "Privatkunden",
     2: "Land- und Forstwirtschaft", 
     3: "Selbständige"
 }
 
-# State mapping - Add your actual state encoding if different
+# State mapping
 state_mapping = {
     1: "Brandenburg/Berlin/MV",
     2: "Hamburg/SH", 
@@ -257,18 +373,12 @@ state_mapping = {
     17: "Bayern/Thüringen"
 }
 
-# PLZ encoding function - You may need to adjust this based on your training data
+# PLZ encoding function
 def encode_plz(plz):
     """
     Encode PLZ to match training data
-    If you used different encoding during training, modify this function
     """
-    # Option 1: Use PLZ as-is (if that's how you trained)
     return int(plz)
-    
-    # Option 2: If you used PLZ ranges or different encoding, modify accordingly
-    # Example: return plz // 1000  # First digit of PLZ
-    # Example: return some_other_encoding_logic(plz)
 
 # Feature descriptions for better user understanding
 feature_descriptions = {
@@ -284,13 +394,30 @@ feature_descriptions = {
     "Cus_typ_id": "Customer type category"
 }
 
-# Main title
-st.markdown('<div class="main-container">', unsafe_allow_html=True)
-st.markdown('<h1 class="main-title">🎯 Customer Churn Prediction</h1>', unsafe_allow_html=True)
+# Header with logo section
+st.markdown('<div class="header-container">', unsafe_allow_html=True)
+
+# Logo section - placeholder for now, will be replaced when logo is uploaded
+st.markdown('''
+<div class="logo-section">
+    <div style="width: 80px; height: 80px; background: linear-gradient(45deg, #7CB342, #558B2F); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-right: 20px;">
+        <span style="color: white; font-size: 2rem; font-weight: bold;">I</span>
+    </div>
+    <div>
+        <div class="company-name">ITZEHOER VERSICHERUNGEN</div>
+        <div class="main-title">🎯 Customer Churn Prediction</div>
+    </div>
+</div>
+''', unsafe_allow_html=True)
+
 st.markdown('<p class="subtitle">Advanced ML-powered customer analytics for better business decisions</p>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 if model is None:
     st.stop()
+
+# Main container
+st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
 # Create tabs for different input methods
 tab1, tab2 = st.tabs(["📁 File Upload", "✏️ Manual Input"])
@@ -383,7 +510,7 @@ with tab1:
                         st.download_button(
                             label="📥 Download Results",
                             data=output.getvalue(),
-                            file_name="churn_predictions.xlsx",
+                            file_name="itzehoer_churn_predictions.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
                         
@@ -460,7 +587,7 @@ with tab2:
                 "📮 German Postal Code (PLZ)", 
                 min_value=1000, 
                 max_value=99999,
-                value=10115,
+                value=25524,  # Itzehoer PLZ
                 help="Enter German postal code (PLZ) - state will be detected automatically"
             )
             
@@ -468,18 +595,6 @@ with tab2:
             detected_state = get_state_from_plz(plz_id)
             
             st.info(f"🗺️ **Auto-detected State:** {state_mapping.get(detected_state, 'Unknown')} (ID: {detected_state})")
-            
-            # Add warning about feature encoding
-            with st.expander("⚠️ Important: Feature Encoding", expanded=False):
-                st.warning("""
-                **Model Training vs Prediction Mismatch Check:**
-                - Customer Type: Using ID {1,2,3} 
-                - State: Auto-detected from PLZ
-                - PLZ: Using raw postal code value
-                
-                If predictions seem incorrect, the encoding might not match your training data.
-                Please verify how these features were encoded during model training.
-                """)
             
             # Customer type selection with meaningful labels
             customer_type_display = st.selectbox(
@@ -503,9 +618,9 @@ with tab2:
                 'alter': [alter],
                 'KILOMETERSTAND_CLEAN': [kilometerstand],
                 'claim': [claim],
-                'state_id': [detected_state],  # Use auto-detected state
-                'plz_id': [encode_plz(plz_id)],  # Use encoded PLZ
-                'Cus_typ_id': [customer_type_display]  # Use selected customer type ID
+                'state_id': [detected_state],
+                'plz_id': [encode_plz(plz_id)],
+                'Cus_typ_id': [customer_type_display]
             })
             
             # Display the data being sent to model for debugging
@@ -579,6 +694,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # Sidebar information
 with st.sidebar:
+    st.markdown('<div class="sidebar-info">', unsafe_allow_html=True)
     st.markdown("### ℹ️ Model Information")
     st.info("""
     **Model:** Enhanced Tuned LightGBM  
@@ -586,25 +702,9 @@ with st.sidebar:
     **Features:** 10 input variables  
     **Accuracy:** Optimized for business use
     """)
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown("### ⚠️ Feature Encoding Check")
-    st.warning("""
-    **Important:** Ensure these match your training data:
-    
-    **Customer Types:**
-    - 1: Privatkunden
-    - 2: Land- und Forstwirtschaft  
-    - 3: Selbständige
-    
-    **State Encoding:**
-    - Auto-detected from PLZ ranges
-    - IDs 1-17 based on German states
-    
-    **PLZ Encoding:**
-    - Currently using raw PLZ values
-    - May need adjustment based on training
-    """)
-    
+    st.markdown('<div class="sidebar-info">', unsafe_allow_html=True)
     st.markdown("### 📚 How to Use")
     st.markdown("""
     **File Upload:**
@@ -617,7 +717,9 @@ with st.sidebar:
     2. Click 'Predict Churn' button
     3. Review individual prediction results
     """)
+    st.markdown('</div>', unsafe_allow_html=True)
     
+    st.markdown('<div class="sidebar-info">', unsafe_allow_html=True)
     st.markdown("### 🎯 Feature Importance")
     st.markdown("""
     Key factors affecting churn:
@@ -628,7 +730,9 @@ with st.sidebar:
     - Geographic location (PLZ/State)
     - Customer type category
     """)
+    st.markdown('</div>', unsafe_allow_html=True)
     
+    st.markdown('<div class="sidebar-info">', unsafe_allow_html=True)
     st.markdown("### 🗺️ State Detection")
     st.markdown("""
     **Automatic state detection** from German postal codes:
@@ -640,16 +744,7 @@ with st.sidebar:
     - 80000-96999: Bayern
     - And more...
     """)
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown("### 👥 Customer Types")
-    for key, value in customer_types.items():
-        st.markdown(f"**{key}.** {value}")
-
-# Footer
-st.markdown("---")
-st.markdown(
-    "<div style='text-align: center; color: #7f8c8d; font-size: 0.9rem;'>"
-    "🔮 Powered by Advanced Machine Learning | Built with Streamlit"
-    "</div>", 
-    unsafe_allow_html=True
-)
+    st.markdown('<div class="sidebar-info">', unsafe_allow_html=True)
+    st.markdown("### 👥")
