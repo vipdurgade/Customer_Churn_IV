@@ -40,7 +40,9 @@ Customer churn is a critical challenge in the insurance industry. This project a
  -  Run `requirements.txt` to install packages
  -  Run `Customer_Churn_M1` or explore the notebooks step-by-step
 
-  
+## 🔍 Predict Fraud 
+*click on the link*
+https://customerchurnvip.streamlit.app/
 
 
   
