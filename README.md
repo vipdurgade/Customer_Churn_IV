@@ -1,6 +1,6 @@
 # 🧠 Customer Churn Prediction
 
-This project presents a complete pipeline for predicting customer churn using machine learning techniques. The goal is to help telecom businesses proactively identify customers at risk of leaving and implement retention strategies.
+This project presents a complete pipeline for predicting customer churn using machine learning techniques. The goal is to help Itzehoer Versicherungen businesses proactively identify customers at risk of leaving and implement retention strategies.
 
 🔗 **Live Demo:** [Streamlit App](https://customerchurnvip.streamlit.app/)
 
