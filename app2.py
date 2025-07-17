@@ -1,11 +1,3 @@
-#st.markdown("### 💡 Model Features")
-#st.markdown("""
-#    - **Batch Processing**: Handle multiple customers at once
- #   - **Real-time Prediction**: Individual customer analysis
-  #  - **Download Results**: Export predictions to Excel
-   # - **Data Validation**: Check for missing or unknown values
-    #- **Contract Duration**: New VTR DAU feature for better accuracy
-    #""")
 import streamlit as st
 import pandas as pd
 import joblib
@@ -164,7 +156,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Load model and feature mapping
+# Load model
 @st.cache_resource
 def load_model():
     try:
@@ -173,61 +165,21 @@ def load_model():
         st.error("Model file not found. Please ensure 'lightgbm_model_vtr_weg_optuna100.pkl' is in the same directory.")
         return None
 
-@st.cache_resource
-def load_feature_mapping():
-    try:
-        return joblib.load('factorize_mapping.pkl')
-    except:
-        st.error("Feature mapping file not found. Please ensure 'factorize_mapping.pkl' is in the same directory.")
-        return None
-
 model = load_model()
-feature_mapping = load_feature_mapping()
 
-# Feature encoding function
-def encode_features(df, feature_mapping):
-    """
-    Encode categorical features using the saved mapping from training
-    """
-    if feature_mapping is None:
-        st.error("Feature mapping not loaded. Cannot encode features.")
-        return None
-        
-    df_encoded = df.copy()
-    
-    # Apply encoding for each feature that has a mapping
-    for feature, mapping in feature_mapping.items():
-        if feature in df_encoded.columns:
-            # Convert the feature values using the mapping
-            df_encoded[feature] = df_encoded[feature].map(mapping)
-            
-            # Handle unknown values
-            if df_encoded[feature].isnull().any():
-                unknown_values = df[feature][df_encoded[feature].isnull()].unique()
-                st.warning(f"⚠️ Unknown values in {feature}: {unknown_values}")
-                st.info(f"Available values for {feature}: {list(mapping.keys())}")
-                
-                # Option 1: Fill with most common value (mode)
-                if len(mapping) > 0:
-                    most_common_encoded = max(mapping.values(), key=list(mapping.values()).count)
-                    df_encoded[feature].fillna(most_common_encoded, inplace=True)
-                    st.info(f"Filled unknown values with most common encoding: {most_common_encoded}")
-    
-    return df_encoded
-
-# Required features
+# Required features - UPDATED TO INCLUDE vtr_dau
 required_features = [
-    "estimated_total_paid",
-    "vtr_dau",
-    "carage_years",
+    "estimated_total_paid", 
+    "carage_years", 
     "kosten_verw", 
     "kosten_prov", 
     "alter", 
     "KILOMETERSTAND_CLEAN", 
-    "claim",
-    "state_id",
-    "plz_id",
-    "Cus_typ_id"
+    "claim", 
+    "state_id", 
+    "plz_id", 
+    "Cus_typ_id",
+    "vtr_dau"  # NEW FEATURE ADDED
 ]
 
 # German postal code to state mapping
@@ -278,24 +230,50 @@ def get_state_from_plz(plz):
     else:
         return 1  # Default fallback
 
-# Get available options from feature mapping
-def get_available_options(feature_name):
-    """Get available options for a categorical feature from the mapping"""
-    if feature_mapping and feature_name in feature_mapping:
-        return list(feature_mapping[feature_name].keys())
-    return []
+# Customer type mapping - CRITICAL: This must match your training data encoding
+customer_types = {
+    1: "Privatkunden",
+    2: "Land- und Forstwirtschaft", 
+    3: "Selbständige"
+}
 
-# Reverse mapping for display purposes
-def get_reverse_mapping(feature_name):
-    """Get reverse mapping (encoded_value -> original_value) for display"""
-    if feature_mapping and feature_name in feature_mapping:
-        return {v: k for k, v in feature_mapping[feature_name].items()}
-    return {}
+# State mapping - Add your actual state encoding if different
+state_mapping = {
+    1: "Brandenburg/Berlin/MV",
+    2: "Hamburg/SH", 
+    3: "Niedersachsen/Bremen",
+    4: "NRW (partial)", 
+    5: "Sachsen-Anhalt", 
+    6: "NRW", 
+    7: "Niedersachsen",
+    8: "NRW", 
+    9: "Rheinland-Pfalz", 
+    10: "NRW", 
+    11: "Hessen",
+    12: "Saarland/RLP", 
+    13: "Baden-Württemberg", 
+    14: "Baden-Württemberg",
+    15: "Bayern", 
+    16: "Baden-Württemberg", 
+    17: "Bayern/Thüringen"
+}
 
-# Feature descriptions for better user understanding
+# PLZ encoding function - You may need to adjust this based on your training data
+def encode_plz(plz):
+    """
+    Encode PLZ to match training data
+    If you used different encoding during training, modify this function
+    """
+    # Option 1: Use PLZ as-is (if that's how you trained)
+    return int(plz)
+    
+    # Option 2: If you used PLZ ranges or different encoding, modify accordingly
+    # Example: return plz // 1000  # First digit of PLZ
+    # Example: return some_other_encoding_logic(plz)
+
+# Feature descriptions for better user understanding - UPDATED TO INCLUDE vtr_dau
 feature_descriptions = {
     "estimated_total_paid": "Total amount paid by customer (€)",
-    "vtr_dau": "Contract duration (days)",
     "carage_years": "Years of car ownership",
     "kosten_verw": "Administrative costs (€)",
     "kosten_prov": "Provision costs (€)",
@@ -304,27 +282,17 @@ feature_descriptions = {
     "claim": "Number of claims made",
     "state_id": "State identifier (auto-detected from PLZ)",
     "plz_id": "German postal code (PLZ)",
-    "Cus_typ_id": "Customer type category"
+    "Cus_typ_id": "Customer type category",
+    "vtr_dau": "Contract duration (days/years)"  # NEW FEATURE DESCRIPTION
 }
 
 # Main title
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
 st.markdown('<h1 class="main-title">🎯 Customer Churn Prediction</h1>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Advanced ML-powered customer analytics with automatic feature encoding</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Advanced ML-powered customer analytics for better business decisions</p>', unsafe_allow_html=True)
 
-if model is None or feature_mapping is None:
+if model is None:
     st.stop()
-
-# Display feature mapping information
-with st.expander("🔧 Feature Mapping Information", expanded=False):
-    st.write("**Loaded Feature Mappings:**")
-    for feature, mapping in feature_mapping.items():
-        st.write(f"**{feature}:** {len(mapping)} unique values")
-        # Show first few mappings as example
-        sample_mapping = dict(list(mapping.items())[:5])
-        st.write(f"  Example mappings: {sample_mapping}")
-        if len(mapping) > 5:
-            st.write(f"  ... and {len(mapping) - 5} more")
 
 # Create tabs for different input methods
 tab1, tab2 = st.tabs(["📁 File Upload", "✏️ Manual Input"])
@@ -360,7 +328,7 @@ with tab1:
             st.success("✅ File uploaded successfully!")
             
             # Show data preview
-            with st.expander("📋 Data Preview (Original)", expanded=True):
+            with st.expander("📋 Data Preview", expanded=True):
                 st.dataframe(df.head(10), use_container_width=True)
             
             # Check if all required features are present
@@ -372,63 +340,54 @@ with tab1:
                 st.write(list(df.columns))
             else:
                 # Extract features in the correct order
-                X_new = df[required_features].copy()
+                X_new = df[required_features]
                 
-                # Apply feature encoding
-                st.info("🔧 Applying feature encoding...")
-                X_encoded = encode_features(X_new, feature_mapping)
-                
-                if X_encoded is not None:
-                    # Show encoded data preview
-                    with st.expander("📋 Encoded Data Preview", expanded=False):
-                        st.dataframe(X_encoded.head(10), use_container_width=True)
-                    
-                    # Check for missing values after encoding
-                    if X_encoded.isnull().any().any():
-                        st.warning("⚠️ Encoded data contains missing values. Please check the encoding process.")
-                        missing_summary = X_encoded.isnull().sum()
-                        missing_summary = missing_summary[missing_summary > 0]
-                        st.dataframe(missing_summary.to_frame("Missing Values"), use_container_width=True)
-                    else:
-                        # Make predictions
-                        if st.button("🚀 Generate Predictions", key="batch_predict"):
-                            with st.spinner('🔮 Making predictions...'):
-                                predictions = model.predict(X_encoded)
-                                prediction_proba = model.predict_proba(X_encoded)[:, 1] if hasattr(model, 'predict_proba') else None
-                            
-                            # Add predictions to original dataframe
-                            df['churn_prediction'] = predictions
-                            if prediction_proba is not None:
-                                df['churn_probability'] = prediction_proba
-                            
-                            st.success("✅ Predictions completed successfully!")
-                            
-                            # Display statistics
-                            col1, col2, col3, col4 = st.columns(4)
-                            with col1:
-                                st.metric("📊 Total Records", len(predictions))
-                            with col2:
-                                st.metric("📈 Churn Rate", f"{(predictions.sum() / len(predictions) * 100):.1f}%")
-                            with col3:
-                                st.metric("✅ Will Stay", f"{(predictions == 0).sum()}")
-                            with col4:
-                                st.metric("❌ Will Churn", f"{(predictions == 1).sum()}")
-                            
-                            # Show results
-                            st.markdown("### 📊 Prediction Results")
-                            st.dataframe(df, use_container_width=True)
-                            
-                            # Create download button
-                            output = io.BytesIO()
-                            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                                df.to_excel(writer, index=False, sheet_name='Predictions')
-                            
-                            st.download_button(
-                                label="📥 Download Results",
-                                data=output.getvalue(),
-                                file_name="churn_predictions.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                            )
+                # Check for missing values
+                if X_new.isnull().any().any():
+                    st.warning("⚠️ Data contains missing values. Please clean your data first.")
+                    missing_summary = X_new.isnull().sum()
+                    missing_summary = missing_summary[missing_summary > 0]
+                    st.dataframe(missing_summary.to_frame("Missing Values"), use_container_width=True)
+                else:
+                    # Make predictions
+                    if st.button("🚀 Generate Predictions", key="batch_predict"):
+                        with st.spinner('🔮 Making predictions...'):
+                            predictions = model.predict(X_new)
+                            prediction_proba = model.predict_proba(X_new)[:, 1] if hasattr(model, 'predict_proba') else None
+                        
+                        # Add predictions to dataframe
+                        df['churn_prediction'] = predictions
+                        if prediction_proba is not None:
+                            df['churn_probability'] = prediction_proba
+                        
+                        st.success("✅ Predictions completed successfully!")
+                        
+                        # Display statistics
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("📊 Total Records", len(predictions))
+                        with col2:
+                            st.metric("📈 Churn Rate", f"{(predictions.sum() / len(predictions) * 100):.1f}%")
+                        with col3:
+                            st.metric("✅ Will Stay", f"{(predictions == 0).sum()}")
+                        with col4:
+                            st.metric("❌ Will Churn", f"{(predictions == 1).sum()}")
+                        
+                        # Show results
+                        st.markdown("### 📊 Prediction Results")
+                        st.dataframe(df, use_container_width=True)
+                        
+                        # Create download button
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            df.to_excel(writer, index=False, sheet_name='Predictions')
+                        
+                        st.download_button(
+                            label="📥 Download Results",
+                            data=output.getvalue(),
+                            file_name="churn_predictions.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
                         
         except Exception as e:
             st.error(f"❌ Error processing file: {str(e)}")
@@ -451,13 +410,6 @@ with tab2:
                 min_value=0.0, 
                 value=1000.0,
                 help="Total amount paid by the customer"
-            )
-            
-            vtr_dau = st.number_input(
-                "📅 Contract Duration (Days)", 
-                min_value=0, 
-                value=365,
-                help="Duration of the contract in days"
             )
             
             carage_years = st.number_input(
@@ -489,6 +441,14 @@ with tab2:
                 value=35,
                 help="Age of the customer"
             )
+            
+            # NEW INPUT FIELD FOR vtr_dau
+            vtr_dau = st.number_input(
+                "📅 Contract Duration (VTR DAU)", 
+                min_value=0.0, 
+                value=365.0,
+                help="Contract duration in days or years (depending on your model training)"
+            )
         
         with col2:
             kilometerstand = st.number_input(
@@ -517,181 +477,196 @@ with tab2:
             # Auto-detect state from PLZ
             detected_state = get_state_from_plz(plz_id)
             
-            # Customer type selection based on available options in mapping
-            customer_type_options = get_available_options('Cus_typ_id')
-            if customer_type_options:
-                customer_type_display = st.selectbox(
-                    "👥 Customer Type", 
-                    options=customer_type_options,
-                    index=0,
-                    help="Select the customer category"
-                )
-            else:
-                # Fallback to default options if mapping not available
-                customer_type_display = st.selectbox(
-                    "👥 Customer Type", 
-                    options=["Privatkunden", "Land- und Forstwirtschaft", "Selbständige"],
-                    index=0,
-                    help="Select the customer category"
-                )
+            st.info(f"🗺️ **Auto-detected State:** {state_mapping.get(detected_state, 'Unknown')} (ID: {detected_state})")
             
-            st.info(f"🗺️ **Auto-detected State ID:** {detected_state}")
+            # Add warning about feature encoding
+            with st.expander("⚠️ Important: Feature Encoding", expanded=False):
+                st.warning("""
+                **Model Training vs Prediction Mismatch Check:**
+                - Customer Type: Using ID {1,2,3} 
+                - State: Auto-detected from PLZ
+                - PLZ: Using raw postal code value
+                - VTR DAU: Using input value as-is
+                
+                If predictions seem incorrect, the encoding might not match your training data.
+                Please verify how these features were encoded during model training.
+                """)
+            
+            # Customer type selection with meaningful labels
+            customer_type_display = st.selectbox(
+                "👥 Customer Type", 
+                options=list(customer_types.keys()),
+                format_func=lambda x: f"{customer_types[x]}",
+                index=0,
+                help="Select the customer category"
+            )
         
         # Submit button
         submitted = st.form_submit_button("🔮 Predict Churn", use_container_width=True)
         
         if submitted:
-            # Prepare input data
+            # Prepare input data with proper encoding - UPDATED TO INCLUDE vtr_dau
             input_data = pd.DataFrame({
                 'estimated_total_paid': [estimated_total_paid],
-                'vtr_dau': [vtr_dau],
                 'carage_years': [carage_years],
                 'kosten_verw': [kosten_verw],
                 'kosten_prov': [kosten_prov],
                 'alter': [alter],
                 'KILOMETERSTAND_CLEAN': [kilometerstand],
                 'claim': [claim],
-                'state_id': [detected_state],
-                'plz_id': [plz_id],
-                'Cus_typ_id': [customer_type_display]
+                'state_id': [detected_state],  # Use auto-detected state
+                'plz_id': [encode_plz(plz_id)],  # Use encoded PLZ
+                'Cus_typ_id': [customer_type_display],  # Use selected customer type ID
+                'vtr_dau': [vtr_dau]  # NEW FEATURE ADDED TO INPUT DATA
             })
             
-            # Display original input data
-            with st.expander("📋 Original Input Data", expanded=False):
+            # Display the data being sent to model for debugging
+            with st.expander("🔧 Debug: Data sent to model", expanded=False):
                 st.dataframe(input_data)
             
-            # Apply feature encoding
-            input_data_encoded = encode_features(input_data, feature_mapping)
-            
-            if input_data_encoded is not None:
-                # Display encoded data for debugging
-                with st.expander("🔧 Encoded Input Data", expanded=False):
-                    st.dataframe(input_data_encoded)
-                
-                # Make prediction
-                with st.spinner('🔮 Analyzing customer data...'):
-                    prediction = model.predict(input_data_encoded)[0]
-                    if hasattr(model, 'predict_proba'):
-                        probability = model.predict_proba(input_data_encoded)[0, 1]
-                    else:
-                        probability = None
-                
-                # Display results
-                st.markdown("---")
-                st.markdown("### 🎯 Prediction Results")
-                
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    if prediction == 1:
-                        st.error("❌ **High Churn Risk**")
-                        st.markdown("This customer is likely to churn.")
-                    else:
-                        st.success("✅ **Low Churn Risk**")
-                        st.markdown("This customer is likely to stay.")
-                
-                with col2:
-                    if probability is not None:
-                        st.metric("🎯 Churn Probability", f"{probability:.2%}")
-                        
-                        # Risk level based on probability
-                        if probability < 0.3:
-                            risk_level = "🟢 Low Risk"
-                        elif probability < 0.7:
-                            risk_level = "🟡 Medium Risk"
-                        else:
-                            risk_level = "🔴 High Risk"
-                        
-                        st.markdown(f"**Risk Level:** {risk_level}")
-                
-                with col3:
-                    st.metric("📊 Prediction", "Churn" if prediction == 1 else "Stay")
-                    confidence = max(probability, 1-probability) if probability is not None else 0.5
-                    st.metric("🎯 Confidence", f"{confidence:.2%}")
-                
-                # Recommendation based on prediction
-                if prediction == 1:
-                    st.markdown("### 💡 Recommendations")
-                    st.warning("""
-                    **Action Required:** This customer shows high churn risk. Consider:
-                    - Proactive outreach and engagement
-                    - Special offers or incentives
-                    - Personalized retention campaigns
-                    - Customer satisfaction surveys
-                    """)
+            # Make prediction
+            with st.spinner('🔮 Analyzing customer data...'):
+                prediction = model.predict(input_data)[0]
+                if hasattr(model, 'predict_proba'):
+                    probability = model.predict_proba(input_data)[0, 1]
                 else:
-                    st.markdown("### 💡 Recommendations")
-                    st.info("""
-                    **Good News:** This customer shows low churn risk. Consider:
-                    - Maintaining current service quality
-                    - Cross-selling opportunities
-                    - Loyalty program enrollment
-                    - Regular check-ins
-                    """)
+                    probability = None
+            
+            # Display results
+            st.markdown("---")
+            st.markdown("### 🎯 Prediction Results")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                if prediction == 1:
+                    st.error("❌ **High Churn Risk**")
+                    st.markdown("This customer is likely to churn.")
+                else:
+                    st.success("✅ **Low Churn Risk**")
+                    st.markdown("This customer is likely to stay.")
+            
+            with col2:
+                if probability is not None:
+                    st.metric("🎯 Churn Probability", f"{probability:.2%}")
+                    
+                    # Risk level based on probability
+                    if probability < 0.3:
+                        risk_level = "🟢 Low Risk"
+                    elif probability < 0.7:
+                        risk_level = "🟡 Medium Risk"
+                    else:
+                        risk_level = "🔴 High Risk"
+                    
+                    st.markdown(f"**Risk Level:** {risk_level}")
+            
+            with col3:
+                st.metric("📊 Prediction", "Churn" if prediction == 1 else "Stay")
+                confidence = max(probability, 1-probability) if probability is not None else 0.5
+                st.metric("🎯 Confidence", f"{confidence:.2%}")
+            
+            # Recommendation based on prediction
+            if prediction == 1:
+                st.markdown("### 💡 Recommendations")
+                st.warning("""
+                **Action Required:** This customer shows high churn risk. Consider:
+                - Proactive outreach and engagement
+                - Special offers or incentives
+                - Personalized retention campaigns
+                - Customer satisfaction surveys
+                """)
             else:
-                st.error("❌ Failed to encode input data. Please check the feature mapping.")
+                st.markdown("### 💡 Recommendations")
+                st.info("""
+                **Good News:** This customer shows low churn risk. Consider:
+                - Maintaining current service quality
+                - Cross-selling opportunities
+                - Loyalty program enrollment
+                - Regular check-ins
+                """)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Sidebar information
+# Sidebar information - UPDATED TO INCLUDE vtr_dau
 with st.sidebar:
     st.markdown("### ℹ️ Model Information")
     st.info("""
-    **Model:** LightGBM VTR WEG Optuna100  
+    **Model:** Enhanced Tuned LightGBM  
     **Purpose:** Customer Churn Prediction  
     **Features:** 11 input variables  
-    **Encoding:** Automatic via factorize_mapping.pkl
+    **Accuracy:** Optimized for business use
     """)
     
-    if feature_mapping:
-        st.markdown("### 🔧 Feature Encoding Status")
-        st.success("✅ Feature mapping loaded successfully!")
-        st.write(f"**Mapped Features:** {len(feature_mapping)}")
-        
-        # Show which features have mappings
-        for feature in required_features:
-            if feature in feature_mapping:
-                st.write(f"✅ {feature}: {len(feature_mapping[feature])} categories")
-            else:
-                st.write(f"⚪ {feature}: Numerical (no mapping needed)")
-    else:
-        st.markdown("### ⚠️ Feature Encoding Status")
-        st.error("❌ Feature mapping not loaded!")
+    st.markdown("### ⚠️ Feature Encoding Check")
+    st.warning("""
+    **Important:** Ensure these match your training data:
+    
+    **Customer Types:**
+    - 1: Privatkunden
+    - 2: Land- und Forstwirtschaft  
+    - 3: Selbständige
+    
+    **State Encoding:**
+    - Auto-detected from PLZ ranges
+    - IDs 1-17 based on German states
+    
+    **PLZ Encoding:**
+    - Currently using raw PLZ values
+    - May need adjustment based on training
+    
+    **VTR DAU:**
+    - Using input value as-is
+    - Verify units (days/years) match training
+    """)
     
     st.markdown("### 📚 How to Use")
     st.markdown("""
     **File Upload:**
     1. Prepare Excel/CSV with required features
     2. Upload using the file uploader
-    3. Features will be automatically encoded
-    4. Review predictions and download results
+    3. Review predictions and download results
     
     **Manual Input:**
     1. Fill in customer details in the form
     2. Click 'Predict Churn' button
-    3. Data will be automatically encoded
-    4. Review individual prediction results
+    3. Review individual prediction results
     """)
     
-    st.markdown("### 🎯 Key Features")
+    st.markdown("### 🎯 Feature Importance")
     st.markdown("""
     Key factors affecting churn:
     - Total amount paid
-    - Contract duration (VTR DAU)
     - Customer age
     - Car age and mileage
     - Claims history
     - Geographic location (PLZ/State)
     - Customer type category
+    - Contract duration (VTR DAU)
     """)
+    
+    st.markdown("### 🗺️ State Detection")
+    st.markdown("""
+    **Automatic state detection** from German postal codes:
+    - 10000-19999: Brandenburg/Berlin/MV
+    - 20000-25999: Hamburg/Schleswig-Holstein
+    - 26000-31999: Niedersachsen/Bremen
+    - 32000-48999: Nordrhein-Westfalen
+    - 60000-65999: Hessen
+    - 80000-96999: Bayern
+    - And more...
+    """)
+    
+    st.markdown("### 👥 Customer Types")
+    for key, value in customer_types.items():
+        st.markdown(f"**{key}.** {value}")
 
 # Footer
 st.markdown("---")
 st.markdown(
     "<div style='text-align: center; color: #7f8c8d; font-size: 0.9rem;'>"
-    "🔮 Powered by Advanced Machine Learning with Automatic Feature Encoding | Built with Streamlit"
+    "🔮 Powered by Advanced Machine Learning | Built with Streamlit"
     "</div>", 
     unsafe_allow_html=True
 )
