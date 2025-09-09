@@ -265,6 +265,28 @@ def load_model():
     except Exception as e:
         return None, f"Error loading model: {str(e)}"
 
+def make_demo_predictions(features_df, threshold):
+    """Make demo predictions using random probabilities (for testing without real model)."""
+    try:
+        np.random.seed(42)  # For reproducible demo results
+        n_samples = len(features_df)
+        
+        # Generate realistic-looking probabilities with some correlation to features
+        base_probs = np.random.beta(2, 5, n_samples)  # Skewed towards lower probabilities
+        
+        # Add some feature-based variation (demo purposes)
+        if 'alter' in features_df.columns and not features_df['alter'].isna().all():
+            age_factor = (features_df['alter'].fillna(features_df['alter'].mean()) - 30) / 100
+            base_probs = np.clip(base_probs + age_factor, 0, 1)
+        
+        probabilities = base_probs
+        predictions = ["Yes" if prob >= threshold else "No" for prob in probabilities]
+        
+        return probabilities, predictions, None
+        
+    except Exception as e:
+        return None, None, f"Error making demo predictions: {str(e)}"
+
 def make_predictions(model, features_df, threshold):
     """Make predictions using the loaded model."""
     try:
